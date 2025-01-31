@@ -1,0 +1,127 @@
+---
+title: "Lab 1 - Computational Statistics (732A89)"
+author: "Helena Llorens Lluís (hllor282), Yi Yang (yiyan338)"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(ggplot2)
+```
+
+
+# QUESTION 1
+
+First, we plot the function $$f(x, y) = sin(x + y) + (x - y)^2 - 1.5x + 2.5y + 1$$ within the intervals $x \in [-1.5, 4]$ and $y \in [-3, 4]$.
+
+```{r, echo=FALSE, fig.dim=c(4, 2.5), fig.align='center'}
+# define the function f(x, y) that returns f(x, y) if both x and y are in the interval
+f <- function(x, y){
+  ifelse(x >= -1.5 & x <= 4 & y >= -3 & y <= 4,
+         sin(x + y) + (x - y)^2 - 1.5*x + 2.5*y + 1,
+         NA)
+}
+
+# data frame with x, y and f(x, y)
+x <- seq(-1.5, 4, length.out = 100)
+y <- seq(-3, 4, length.out = 100)
+
+grid <- expand.grid(x = x, y = y)
+grid$z <- with(grid, f(x, y))
+
+# plot f(x, y)
+ggplot(grid, aes(x = x, y = y, z = z)) + 
+  geom_contour(col = "#4E79A7") + 
+  labs(x = "x", y = "y", title = "Contour plot of f(x, y)") + 
+  theme_minimal()
+```
+
+
+```{r, echo=FALSE}
+# gradient for f(x, y)
+gradient <- function(x, y){
+  grad_x <- cos(x + y) + 2*(x - y) - 1.5
+  grad_y <- cos(x + y) - 2*(x - y) + 2.5
+  return(c(grad_x, grad_y))
+}
+
+# hessian matrix for f(x, y)
+hessian <- function(x, y){
+  
+  m <- matrix(c(-sin(x + y) + 2, -sin(x + y) - 2,
+              -sin(x + y) - 2, -sin(x + y) + 2),
+              byrow = T, nrow = 2, ncol = 2)
+  
+  return(m)
+}
+```
+
+```{r, echo=FALSE}
+# newton algorithm
+newton <- function(gradient, hessian, x_init, y_init, tol = 0.0001, maxit = 100){
+  
+  # set initial values
+  x0 <- c(x_init, y_init)
+  
+  # while the stopping criteria is not met
+  for(it in 1:maxit){
+    
+    # add regularization so that the inverse can be calculated
+    if(det(hessian(x0[1], x0[2])) == 0){
+      x1 <- x0 - as.vector(solve(hessian(x0[1]+1e-12, x0[2]+1e-12)) %*% gradient(x0[1], x0[2]))
+    } else {
+      # update values
+      x1 <- x0 - as.vector(solve(hessian(x0[1], x0[2])) %*% gradient(x0[1], x0[2]))
+    }
+    
+    x1[1] <- max(min(x1[1], 4), -1.5)
+    x1[2] <- max(min(x1[2], 4), -3)
+    
+    # if the stopping criteria is met
+    if(norm(x1 - x0, type = "2") < tol){  # t(x1 - x0) %*% (x1 - x0)
+      return(list(x = x1[1], y = x1[2], iterations = it, 
+               gradient = gradient(x1[1], x1[2]), hessian = hessian(x1[1], x1[2])))
+    } 
+    
+    x0 <- x1
+  }
+  
+  warning("Maximum number of iterations reached without convergence.")
+  return(list(x = x1[1], y = x1[2], iterations = maxit,
+           gradient = gradient(x1[1], x1[2]), hessian = hessian(x1[1], x1[2])))
+}
+```
+
+With both the gradient and the Hessian matrix calculated, we have been able to compute the Newton algorithm to find local minimums of this function. This function takes as input both the gradient and the Hessian matrix, a pair of starting values $x_0$ and $y_0$, and a tolerance (set at default as $0.0001$) and a maximum of iterations (set at $100$ as default).
+
+
+
+```{r}
+x_init <- 1
+y_init <- 3
+newton(gradient, hessian, x_init, y_init)
+```
+
+
+```{r}
+x_init <- 2
+y_init <- 4
+newton(gradient, hessian, x_init, y_init)
+```
+
+
+```{r}
+x_init <- 0
+y_init <- 0
+newton(gradient, hessian, x_init, y_init)
+```
+
+```{r}
+x_init <- 0
+y_init <- 1
+newton(gradient, hessian, x_init, y_init)
+```
+

@@ -137,7 +137,7 @@ On the other hand, $(1.5471976, \  0.5471976)$ is classified as a saddle point s
 
 ## Appendix
 
-```{r}
+```{r, eval=FALSE}
 # define the function f(x, y) that returns f(x, y) if both x and y are in the interval
 f <- function(x, y){
   ifelse(x >= -1.5 & x <= 4 & y >= -3 & y <= 4,
@@ -216,6 +216,7 @@ newton <- function(gradient, hessian, x_init, y_init, tol = 0.0001, maxit = 100)
            gradient = gradient(x1[1], x1[2]), eigenvalues = eigen(hessian(x1[1], x1[2]))$values))
 }
 
+# trying algorithm with different starting points
 x_init1 <- 1
 y_init1 <- 3
 res1 <- newton(gradient, hessian, x_init1, y_init1)
@@ -228,6 +229,7 @@ x_init3 <- 0
 y_init3 <- -1
 res3 <- newton(gradient, hessian, x_init3, y_init3)
 
+# table of results
 df <- data.frame(initial_x = c(x_init1, x_init2, x_init3),
                  initial_y = c(y_init1, y_init2, y_init3),
                  final_x = c(res1$x, res2$x, res3$x),

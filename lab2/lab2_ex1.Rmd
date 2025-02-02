@@ -10,8 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE}
 library(ggplot2)
+library(knitr)
 ```
-
 
 # QUESTION 1
 
@@ -63,27 +63,34 @@ hessian <- function(x, y){
 # newton algorithm
 newton <- function(gradient, hessian, x_init, y_init, tol = 0.0001, maxit = 100){
   
+  # check that the initial values are within the intervals
+  if(x_init < -1.5 || x_init > 4 || y_init < -3 || y_init > 4){
+    stop("The x and y values have to be within the intervals")
+  }
+  
   # set initial values
   x0 <- c(x_init, y_init)
   
   # while the stopping criteria is not met
   for(it in 1:maxit){
     
-    # add regularization so that the inverse can be calculated
-    if(det(hessian(x0[1], x0[2])) == 0){
-      x1 <- x0 - as.vector(solve(hessian(x0[1]+1e-12, x0[2]+1e-12)) %*% gradient(x0[1], x0[2]))
-    } else {
-      # update values
-      x1 <- x0 - as.vector(solve(hessian(x0[1], x0[2])) %*% gradient(x0[1], x0[2]))
+    H <- hessian(x0[1], x0[2])
+    
+    # use MASS library in case of a singular Hessian matrix
+    if(abs(det(H)) < 1e-6){
+      x1 <- x0 - as.vector(MASS::ginv(H) %*% gradient(x0[1], x0[2]))
+    } else{
+      x1 <- x0 - as.vector(solve(H) %*% gradient(x0[1], x0[2]))
     }
     
+    # set the values within the intervals
     x1[1] <- max(min(x1[1], 4), -1.5)
     x1[2] <- max(min(x1[2], 4), -3)
     
     # if the stopping criteria is met
     if(norm(x1 - x0, type = "2") < tol){  # t(x1 - x0) %*% (x1 - x0)
       return(list(x = x1[1], y = x1[2], iterations = it, 
-               gradient = gradient(x1[1], x1[2]), hessian = hessian(x1[1], x1[2])))
+               gradient = gradient(x1[1], x1[2]), eigenvalues = eigen(hessian(x1[1], x1[2]))$values))
     } 
     
     x0 <- x1
@@ -91,37 +98,39 @@ newton <- function(gradient, hessian, x_init, y_init, tol = 0.0001, maxit = 100)
   
   warning("Maximum number of iterations reached without convergence.")
   return(list(x = x1[1], y = x1[2], iterations = maxit,
-           gradient = gradient(x1[1], x1[2]), hessian = hessian(x1[1], x1[2])))
+           gradient = gradient(x1[1], x1[2]), eigenvalues = eigen(hessian(x1[1], x1[2]))$values))
 }
 ```
 
-With both the gradient and the Hessian matrix calculated, we have been able to compute the Newton algorithm to find local minimums of this function. This function takes as input both the gradient and the Hessian matrix, a pair of starting values $x_0$ and $y_0$, and a tolerance (set at default as $0.0001$) and a maximum of iterations (set at $100$ as default).
 
+With both the gradient and the Hessian matrix calculated, we have been able to compute the Newton algorithm to find local minimums of this function. This function takes as input both the gradient and the Hessian matrix, a pair of starting values $x_0$ and $y_0$, and a tolerance (set as default at $0.0001$) and a maximum of iterations (set at $100$ as default). We tried the function for 3 different starting points and the results are presented in the following table.
 
+```{r, echo=FALSE, fig.align='center'}
+x_init1 <- 1
+y_init1 <- 3
+res1 <- newton(gradient, hessian, x_init1, y_init1)
 
-```{r}
-x_init <- 1
-y_init <- 3
-newton(gradient, hessian, x_init, y_init)
+x_init2 <- 2
+y_init2 <- 4
+res2 <- newton(gradient, hessian, x_init2, y_init2)
+
+x_init3 <- 0
+y_init3 <- -1
+res3 <- newton(gradient, hessian, x_init3, y_init3)
+
+df <- data.frame(initial_x = c(x_init1, x_init2, x_init3),
+                 initial_y = c(y_init1, y_init2, y_init3),
+                 final_x = c(res1$x, res2$x, res3$x),
+                 final_y = c(res1$y, res2$y, res3$y),
+                 function_value= c(f(res1$x, res1$y), f(res2$x, res2$y), f(res3$x, res3$y)), 
+                 eigenvalues1 = c(res1$eigenvalues[1], res2$eigenvalues[1], res3$eigenvalues[1]),
+                 eigenvalues2 = c(res1$eigenvalues[2], res2$eigenvalues[2], res3$eigenvalues[2]))
+kable(df,
+      caption = "Newton algorithm results")
 ```
 
 
-```{r}
-x_init <- 2
-y_init <- 4
-newton(gradient, hessian, x_init, y_init)
-```
+A result is considered a local minimum if all its eigenvalues are positive. As shown in the table, two of the three solutions satisfy this condition: $(2.5943951, \ 1.5943951)$ and $(-0.5471976, \ -1.5471976)$. Among them, we identify the latter as the global minimum, as it yields the lowest function value, $-1.913223$. 
 
-
-```{r}
-x_init <- 0
-y_init <- 0
-newton(gradient, hessian, x_init, y_init)
-```
-
-```{r}
-x_init <- 0
-y_init <- 1
-newton(gradient, hessian, x_init, y_init)
-```
+On the other hand, $(1.5471976, \  0.5471976)$ is classified as a saddle point since one of its eigenvalues is negative.
 

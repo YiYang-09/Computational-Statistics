@@ -309,8 +309,15 @@ cat("The coefficients are:","\n",coef(fit))
 
 ```
 
-First,we implemented a  maximum likelihood estimator using the  steepest ascent method with a step-size-reducing line search.The function also counts the number of evaluations of the log-likelihood function and its gradient to monitor computational efficiency.
-Then we generated a contour plot, which illustrates the shape of the log-likelihood surface.From the plot we could roughly identify the location of global /local maximum.
+First,we implemented a  maximum likelihood estimator using the  steepest ascent method with a step-size-reducing line search.The function also counts the number of evaluations of the log-likelihood function and its gradient to monitor computational efficiency.The log likelihod is given by 
+$$
+g(\mathbf{b}) = \sum_{i=1}^{n} \left[ y_i \log\left(\frac{1}{1 + \exp(-\beta_0 - \beta_1 x_i)}\right) + (1 - y_i) \log\left(1 - \frac{1}{1 + \exp(-\beta_0 - \beta_1 x_i)}\right) \right]
+$$
+where $\mathbf{b} = (\beta_0, \beta_1)^T$.The gradient of the log likelihood function is: 
+
+$$
+g'(\mathbf{b}) = \sum_{i=1}^{n} \left[ y_i - \frac{1}{1 + \exp(-\beta_0 - \beta_1 x_i)} \right] \begin{pmatrix} 1 \\ x_i \end{pmatrix}
+$$Then we generated a contour plot, which illustrates the shape of the log-likelihood surface.From the plot we could roughly identify the location of global /local maximum.
 ```{r echo=FALSE, fig.dim=c(4, 3.5),fig.align='center'}
 contour(x1grid, x2grid, mgx, nlevels=30)
 
@@ -335,7 +342,8 @@ legend("bottom",
        bty = "n",
        inset = c(0, -0.4),   
        xpd = TRUE,          
-       horiz = FALSE)   
+       horiz = FALSE,
+       cex = 0.8)   
 #first solution: a=a0
 first <- steepestasc(inital_b,eps=1e-5, alpha0=1)
 #second solution: 
@@ -383,14 +391,13 @@ results_df <- data.frame(
   Counts_function = c(optim_BFGS$counts[1], optim_NM$counts[1]),
   Counts_gradiet = c(optim_BFGS$counts[2], optim_NM$counts[2])
 )
-kable(results_df,caption = "BFGS and Nelder-Mead results")
+kable(results_df,caption = "BFGS and Nelder-Mead Results")
 
 ```
 
 **Comparison**
 
 Results:  
-
 The results from `BFGS` and `Nelder-Mead` are similar but not identical from part b. However, the difference in $\beta_0$ and $\beta_1$ are relatively small due to differences in the optimization algorithms and their convergence criteria.
 
 The precision of the result:  
@@ -401,7 +408,7 @@ The number of function and gradient evaluations:
 `Nelder-Mead` doesn't require the computation of derivatives and relies sole on function evaluations.It requires 47 function evaluation.
 
 
-We used function `glm` and the results show as follow:
+We used function `glm` and the results are as follows:
 ```{r echo=FALSE}
 xi <- c(0,0,0,0.1,0.1,0.3,0.3,0.9,0.9,0.9)
 yi <- c(0,0,1,0,1,1,1,0,1,1)

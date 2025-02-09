@@ -86,7 +86,7 @@ We generated $1000$ random samples from this mixture distribution, assigning eac
 
 ```{r, echo=FALSE, fig.dim=c(4, 3), fig.align='center'}
 mu1 <- c(0, 0)
-mu2 <- c(1.2, 1.5)
+mu2 <- c(1.5, 1.2)
 mu <- list(mu1, mu2)
 
 sigma1 <- matrix(c(0.6, 0, 0, 0.6), nrow = 2)
@@ -162,7 +162,7 @@ kable(df, caption = "Computation time for each method")
 
 # set initial distribution paraemters
 mu1 <- c(0, 0)
-mu2 <- c(1.2, 1.5)
+mu2 <- c(1.5, 1.2)
 mu <- list(mu1, mu2)
 
 sigma1 <- matrix(c(0.6, 0, 0, 0.6), nrow = 2)

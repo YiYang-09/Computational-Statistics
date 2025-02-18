@@ -115,3 +115,78 @@ mean(x3)
 
 # f
 # f ~ Gamma(a = 6, b = 1) -> E(X) = 6*1 = 6
+
+
+
+
+#####################################################################################################
+
+MetropolisHastings <- function(x_init, n_iter, proposal_dist = "Other"){
+  set.seed(1234)
+  x <- numeric(length = n_iter)
+  x[1] <- x_init
+  acc <- 0
+  
+  for(t in 2:(n_iter)){
+    
+    # sample candidate for x* from a proposal distribution
+    if(proposal_dist == "Normal"){
+      x_candidate <- rnorm(n = 1, mean = x[t - 1], sd = 0.1)
+      
+    } else if(proposal_dist == "Chi"){
+      x_candidate <- rchisq(n = 1, floor(x[t - 1] + 1))
+      
+    } else {
+      x_candidate <- runif(n = 1, min = x[t - 1] - 0.5, max = x[t - 1] + 0.5)
+    }
+    
+    # if asymmetric distribution
+    if(proposal_dist == "Chi"){ 
+      num <- f(x_candidate) * dchisq(x[t - 1], df = floor(x_candidate))
+      denom <- f(x[t - 1]) * dchisq(x_candidate, df = floor(x[t - 1]))
+      r <- num / denom
+    } else{
+      # calculate acceptance rate
+      r <- f(x_candidate) / f(x[t - 1]) # since proposal is symmetric, R = f(x*)/f(x_t)
+    }
+    
+    # sample x[t+1]
+    if (runif(1) < min(r, 1)) {
+      # Accept new candidate
+      x[t] <- x_candidate  
+      acc <- acc + 1
+      
+    } else {
+      # Stay at previous value
+      x[t] <- x[t - 1]  
+    }
+  }
+  
+  return(list(chain = x, acceptance_rate = sum(acc)/n_iter))
+}
+
+x1 <- MetropolisHastings(x_init = 1, n_iter = 10000, proposal_dist = "Normal")$chain
+x2 <- MetropolisHastings(x_init = 1, n_iter = 10000, proposal_dist = "Chi")$chain
+x3 <- MetropolisHastings(x_init = 1, n_iter = 10000)$chain
+
+acc1 <- MetropolisHastings(x_init = 1, n_iter = 10000, proposal_dist = "Normal")$acceptance_rate
+acc2 <- MetropolisHastings(x_init = 1, n_iter = 10000, proposal_dist = "Chi")$acceptance_rate
+acc3 <- MetropolisHastings(x_init = 1, n_iter = 10000)$acceptance_rate
+
+data <- data.frame(it = 1:10000, x1 = x1, x2 = x2, x3 = x3)
+
+ggplot(data, aes(x = it, y = x1)) + 
+  geom_line(col = "#4E79A7") + 
+  theme_minimal() + 
+  labs(x = "Iteration", y = "Chain values")
+
+ggplot(data, aes(x = x1)) + 
+  geom_histogram(color = "#BAB0AC", fill = "#4E79A7") + 
+  theme_minimal() + 
+  labs(x = "Sample values", y = "Count")
+
+ggplot(data, aes(x = x1)) + 
+  geom_histogram(color = "#BAB0AC", fill = "#4E79A7", bins = 30) + 
+  geom_line(data = data_f, aes(x = x, y = y), color = "black", linewidth = 1) + 
+  theme_minimal() + 
+  labs(x = "Sample values", y = "Density / f(x)")

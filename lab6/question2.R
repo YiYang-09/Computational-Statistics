@@ -49,11 +49,13 @@ simulated_annealing <- function(data,initial,max_stage,initial_temperature,alpha
   temperature <- initial_temperature
   iter_per_stage <- initial_iteration
   crit_values <- numeric()
+  total_iter <- 0
   
   for(stage in 1:max_stage){
     
     for (i in 1:iter_per_stage) {
       
+      total_iter <- total_iter + 1
       #generate new subsample
       new_subsample <- current_subsample
       remove_index <- sample(1: length(current_subsample),1)
@@ -79,7 +81,7 @@ simulated_annealing <- function(data,initial,max_stage,initial_temperature,alpha
         best_crit <- current_crit
       }
     
-      crit_values[i] <- current_crit
+      crit_values[total_iter] <- current_crit
     }
     
       temperature <- temperature*alpha
@@ -98,12 +100,49 @@ simulated_annealing <- function(data,initial,max_stage,initial_temperature,alpha
 }
 
 
+set.seed(12345)
+result1 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=200,alpha=0.9,initial_iteration=100,beta=1.5)
+#plot(result1$crit_values,type = "l",col="red",xlab="Iteration Number",ylab="Criterition Value",main="Criterion-Value versus Iteration")
 
-result1 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=100,alpha=0.9,initial_iteration=10,beta=1.1)
-plot(result1$crit_values,type = "l",col="red",xlab="Iteration Number",ylab="Criterition Value",main="Criterion-Value versus Iteration")
-df1 <- data[result1$best_subsample, ]
+dfcritvalue1 <- data.frame(IterationNumber=1:length(result1$crit_values),
+                           CriterionValue=result1$crit_values)
+ggplot(dfcritvalue1,aes(x=IterationNumber,y=CriterionValue))+
+  geom_line(color="#4E79A7")+
+  labs(x="IterationNumber",
+       y="CriterionValue",
+       title = "Criterion-Value versus Iteration")+
+  theme_minimal()
+
+dfresult1 <- data[result1$best_subsample, ]
 ggplot(df,aes(age,balance))+
   geom_point(color="#4E79A7",size=2,alpha=0.6)+
   #geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
-  geom_point(data=df1,aes(age,balance),color="blue",size=2)+
+  geom_point(data=dfresult1,aes(age,balance),color="blue",size=2)+
   theme_minimal()
+
+print(result1$best_crit)
+
+set.seed(12345)
+result2 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=200,alpha=0.9,initial_iteration=10,beta=1.5)
+
+dfcritvalue2 <- data.frame(IterationNumber=1:length(result2$crit_values),
+                           CriterionValue=result2$crit_values)
+ggplot(dfcritvalue2,aes(x=IterationNumber,y=CriterionValue))+
+  geom_line(color="#4E79A7")+
+  labs(x="IterationNumber",
+       y="CriterionValue",
+       title = "Criterion-Value versus Iteration")+
+  theme_minimal()
+
+dfresult2 <- data[result2$best_subsample, ]
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=2,alpha=0.6)+
+  #geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
+  geom_point(data=dfresult2,aes(age,balance),color="blue",size=2)+
+  theme_minimal()
+print(result2$best_crit)
+
+
+
+
+

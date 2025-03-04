@@ -2,6 +2,9 @@
 title: "Lab 6 - Computational Statistics (732A89)"
 author: "Helena Llorens Lluís (hllor282), Yi Yang (yiyan338)"
 output: pdf_document
+header-includes:
+ \usepackage{float}
+ \floatplacement{figure}{H}
 ---
 
 ```{r setup, include=FALSE}
@@ -88,7 +91,7 @@ em <- function(data, eps = 0.0001){
 After loading the `dat3p` dataset, we plot a histogram to visualize its distribution.
 
 ```{r, echo=FALSE}
-load(file = "D:\\liu\\CompStat\\Computational-Statistics\\lab6\\threepops.Rdata")
+load("threepops.Rdata")
 data <- dat3p
 df <- data.frame(data)
 ggplot(df, aes(x = df[, 1])) + 
@@ -146,8 +149,176 @@ Both estimates stabilize after a certain number of iterations, supporting conver
 
 The EM algorithm successfully fitted a three-component normal mixture model. The convergence plots validate that the algorithm converged for each parameter. Additionally, modifying the stopping criterion ensured robustness against data scaling.
 
-# APPENDIX
 
+# Question 2 Simulated annealing
+
+Fisrt, we plot the data and select randomly 22 clients.The red points show the initial cilents that we have choosen, which will be used in the simulated algorithm.
+```{r echo=FALSE,fig.cap='Plot of data', fig.dim=c(4, 2.5), fig.align='center', fig.pos="H"}
+library(ggplot2)
+load("bankdata.Rdata")
+data <- as.data.frame(bankdata)
+nclients <- dim(data)[1]  # number of individuals in the dataset
+#a
+set.seed(12345)
+initial <- sample(1:nclients,22)
+df <- data.frame(age=data$age,balance=data$balance)
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=1,alpha=0.6)+
+  geom_point(data=df[initial,],aes(age,balance),color="red",size=1)+
+  theme_minimal()
+```
+We now implement `simulated annealing` algorithm to minize the `criterion function`.To ensure we always have subsets with 22 clients, we **remove one client from the subsets and randomly select another client from the whole dataset in each iteration**.
+```{r echo=FALSE }
+crit <- function(dat, subs){
+  s <- length(subs)
+  dist <- matrix(rep(NA, nclients*s), ncol=s)
+  for (i in 1:s){
+    dist[, i] <- sqrt((dat[,1]-dat[subs[i],1])^2+(dat[,2]-dat[subs[i],2])^2)
+  }
+  sum(apply(dist, 1, min))
+}
+
+simulated_annealing <- function(data,initial,max_stage,initial_temperature,alpha,initial_iteration,beta){
+  
+  current_subsample <- initial
+  current_crit <- crit(data,current_subsample)
+  best_subsample <- current_subsample
+  best_crit <- current_crit
+  
+  temperature <- initial_temperature
+  iter_per_stage <- initial_iteration
+  crit_values <- numeric()
+  total_iter <- 0
+  
+  for(stage in 1:max_stage){
+    
+    for (i in 1:iter_per_stage) {
+      
+      total_iter <- total_iter + 1
+      #generate new subsample
+      new_subsample <- current_subsample
+      remove_index <- sample(1: length(current_subsample),1)
+      #select one sample from dataset
+      add_index <- sample(setdiff(1:nclients,current_subsample),1)
+      new_subsample[remove_index] <- add_index
+      
+      #calculate new crit
+      new_crit <- crit(data,new_subsample)
+      
+      #calculate the acceptance probability
+      differernce_crit <- new_crit- current_crit
+      accept_probability <- ifelse(differernce_crit<0,1,exp(-differernce_crit/temperature))
+      
+      if(runif(1)<accept_probability){
+        current_subsample <- new_subsample
+        current_crit <- new_crit
+        
+      }
+      
+      if(current_crit<best_crit){
+        best_subsample <- current_subsample
+        best_crit <- current_crit
+      }
+    
+      crit_values[total_iter] <- current_crit
+    }
+    
+      temperature <- temperature*alpha
+      iter_per_stage <- iter_per_stage*beta
+      
+
+  }
+  
+  return(list(
+    best_subsample=best_subsample,
+    best_crit=best_crit,
+    crit_values=crit_values
+  ))
+  
+  
+}
+```
+
+We then try different combinations of schedules, temperatures and iterations to find a better solution.The fist combination is :$$initial temperature=200$$  $$max stage = 10$$ $$\alpha=0.9$$  $$\beta=1.5$$ $$initial iteration=100$$ 
+The plots of the criterion-value versus the iteration number ,as well as the final clients marked are shown:
+```{r echo=FALSE,fig.cap='Criterion-value Versus the Iteration Number', fig.dim=c(4, 2.5), fig.align='center', fig.pos="H"}
+set.seed(12345)
+result1 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=200,alpha=0.9,initial_iteration=100,beta=1.5)
+#plot(result1$crit_values,type = "l",col="red",xlab="Iteration Number",ylab="Criterition Value",main="Criterion-Value versus Iteration")
+
+dfcritvalue1 <- data.frame(IterationNumber=1:length(result1$crit_values),
+                           CriterionValue=result1$crit_values)
+ggplot(dfcritvalue1,aes(x=IterationNumber,y=CriterionValue))+
+  geom_line(color="#4E79A7")+
+  labs(x="IterationNumber",
+       y="CriterionValue",
+       title = "Criterion-Value versus Iteration")+
+  theme_minimal()
+
+
+```
+
+```{r,echo=FALSE,fig.cap='Final subset', fig.dim=c(4, 2.5), fig.align='center', fig.pos="H"}
+dfresult1 <- data[result1$best_subsample, ]
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=1,alpha=0.6)+
+  #geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
+  geom_point(data=dfresult1,aes(age,balance),color="blue",size=1)+
+  theme_minimal()
+```
+
+The best crit value is:
+```{r echo=FALSE }
+print(result1$best_crit)
+```
+
+
+Then we try the second combination:$$initial temperature=200$$  $$max stage = 10$$ $$\alpha=0.9$$  $$\beta=1.5$$ $$initial iteration=10$$
+```{r echo=FALSE,fig.cap='Criterion-value Versus the Iteration Number', fig.dim=c(4, 2.5), fig.align='center', fig.pos="H"}
+set.seed(12345)
+result2 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=200,alpha=0.9,initial_iteration=10,beta=1.5)
+
+dfcritvalue2 <- data.frame(IterationNumber=1:length(result2$crit_values),
+                           CriterionValue=result2$crit_values)
+ggplot(dfcritvalue2,aes(x=IterationNumber,y=CriterionValue))+
+  geom_line(color="#4E79A7")+
+  labs(x="IterationNumber",
+       y="CriterionValue",
+       title = "Criterion-Value versus Iteration")+
+  theme_minimal()
+```
+
+```{r echo=FALSE,fig.cap='Final subset', fig.dim=c(4, 2.5), fig.align='center', fig.pos="H"}
+dfresult2 <- data[result2$best_subsample, ]
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=1,alpha=0.6)+
+  #geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
+  geom_point(data=dfresult2,aes(age,balance),color="blue",size=1)+
+  theme_minimal()
+
+```
+
+The best crit value is:
+```{r echo=FALSE }
+print(result2$best_crit)
+```
+
+**Comparison**  
+1.Solution quality:  
+The  second combination achieved a lower criterion value (15778.63) compared to the first combination (15815.4).  
+2.Convergence Speed:  
+The first combination required a significantly higher number of iterations (9000) to reach the global minimum, indicating a slower convergence.  
+The second combination reached its best value much faster, around 370 iterations, indicating a quicker convergence.  
+3.Parameter Impact:  
+The higher initial iteration count (100) in the first combination allowed for more extensive exploration in each stage, which likely contributed to finding a better solution but at the cost of more iterations.   
+The lower initial iteration count (10) in the second combination led to faster convergence, allowing the algorithm to quickly find a better solution.
+
+**Conclusion**  
+**The second combination** outperforms the first combination in both solution quality and convergence speed. This suggests that a lower initial iteration count with a higher iteration increase factor can lead to quicker and better solutions in this context.
+
+
+# APPENDIX
+## Question 1
 ```{r, eval=FALSE}
 library(ggplot2)
 library(knitr)
@@ -246,5 +417,154 @@ ggplot(data = sigmas, aes(x = 1:nrow(sigmas))) +
   geom_line(aes(y = sigmas[, 3]), col = "#E15759", size = 0.7) + 
   theme_minimal() + 
   labs(x = "Iterations", y = expression(sigma))
+```
+
+## Question 2
+```{r, eval=FALSE}
+  #question2
+library(ggplot2)
+load("bankdata.Rdata")
+data <- as.data.frame(bankdata)
+nclients <- dim(data)[1]  # number of individuals in the dataset, here 4364
+
+
+crit <- function(dat, subs){
+  s <- length(subs)
+  dist <- matrix(rep(NA, nclients*s), ncol=s)
+  for (i in 1:s){
+    dist[, i] <- sqrt((dat[,1]-dat[subs[i],1])^2+(dat[,2]-dat[subs[i],2])^2)
+  }
+  sum(apply(dist, 1, min))
+}
+
+
+#a
+set.seed(12345)
+initial <- sample(1:nclients,22)
+df <- data.frame(age=data$age,balance=data$balance)
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=2,alpha=0.6)+
+  geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
+  theme_minimal()
+
+#b simulated annealing 
+
+
+
+exchange_clients <- function(initial,nclients){
+  
+  remove_index <- sample(1:length(initial),1)
+  #select one sample from dataset
+  add_index <- sample(setdiff(1:nclients,initial),1)
+  new_initial <- initial
+  new_initial[remove_index] <- add_index
+  return(new_initial)
+  
+}
+
+simulated_annealing <- function(data,initial,max_stage,initial_temperature,alpha,initial_iteration,beta){
+  
+  current_subsample <- initial
+  current_crit <- crit(data,current_subsample)
+  best_subsample <- current_subsample
+  best_crit <- current_crit
+  
+  temperature <- initial_temperature
+  iter_per_stage <- initial_iteration
+  crit_values <- numeric()
+  total_iter <- 0
+  
+  for(stage in 1:max_stage){
+    
+    for (i in 1:iter_per_stage) {
+      
+      total_iter <- total_iter + 1
+      #generate new subsample
+      new_subsample <- current_subsample
+      remove_index <- sample(1: length(current_subsample),1)
+      #select one sample from dataset
+      add_index <- sample(setdiff(1:nclients,current_subsample),1)
+      new_subsample[remove_index] <- add_index
+      
+      #calculate new crit
+      new_crit <- crit(data,new_subsample)
+      
+      #calculate the acceptance probability
+      differernce_crit <- new_crit- current_crit
+      accept_probability <- ifelse(differernce_crit<0,1,exp(-differernce_crit/temperature))
+      
+      if(runif(1)<accept_probability){
+        current_subsample <- new_subsample
+        current_crit <- new_crit
+        
+      }
+      
+      if(current_crit<best_crit){
+        best_subsample <- current_subsample
+        best_crit <- current_crit
+      }
+    
+      crit_values[total_iter] <- current_crit
+    }
+    
+      temperature <- temperature*alpha
+      iter_per_stage <- iter_per_stage*beta
+      
+
+  }
+  
+  return(list(
+    best_subsample=best_subsample,
+    best_crit=best_crit,
+    crit_values=crit_values
+  ))
+  
+  
+}
+
+
+set.seed(12345)
+result1 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=200,alpha=0.9,initial_iteration=100,beta=1.5)
+#plot(result1$crit_values,type = "l",col="red",xlab="Iteration Number",ylab="Criterition Value",main="Criterion-Value versus Iteration")
+
+dfcritvalue1 <- data.frame(IterationNumber=1:length(result1$crit_values),
+                           CriterionValue=result1$crit_values)
+ggplot(dfcritvalue1,aes(x=IterationNumber,y=CriterionValue))+
+  geom_line(color="#4E79A7")+
+  labs(x="IterationNumber",
+       y="CriterionValue",
+       title = "Criterion-Value versus Iteration")+
+  theme_minimal()
+
+dfresult1 <- data[result1$best_subsample, ]
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=2,alpha=0.6)+
+  #geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
+  geom_point(data=dfresult1,aes(age,balance),color="blue",size=2)+
+  theme_minimal()
+
+print(result1$best_crit)
+
+set.seed(12345)
+result2 <- simulated_annealing(data=data,initial=initial,max_stage=10,initial_temperature=200,alpha=0.9,initial_iteration=10,beta=1.5)
+
+dfcritvalue2 <- data.frame(IterationNumber=1:length(result2$crit_values),
+                           CriterionValue=result2$crit_values)
+ggplot(dfcritvalue2,aes(x=IterationNumber,y=CriterionValue))+
+  geom_line(color="#4E79A7")+
+  labs(x="IterationNumber",
+       y="CriterionValue",
+       title = "Criterion-Value versus Iteration")+
+  theme_minimal()
+
+dfresult2 <- data[result2$best_subsample, ]
+ggplot(df,aes(age,balance))+
+  geom_point(color="#4E79A7",size=2,alpha=0.6)+
+  #geom_point(data=df[initial,],aes(age,balance),color="red",size=2)+
+  geom_point(data=dfresult2,aes(age,balance),color="blue",size=2)+
+  theme_minimal()
+print(result2$best_crit)
+
+
 ```
 
